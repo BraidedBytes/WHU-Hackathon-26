@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Spoilsport",
+  "version": "0.1.0",
+  "description": "Blur film spoilers for your watchlist.",
+  "permissions": ["storage", "contextMenus"],
+  "host_permissions": ["https://api.openai.com/*", "http://localhost:3000/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["sync.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["lib/detect.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_start"
+    }
+  ]
+}
