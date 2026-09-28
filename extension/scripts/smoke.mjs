@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -39,6 +39,13 @@ let chrome;
 try {
   await cp(extension, unpacked, { recursive: true,
     filter: (source) => source !== join(extension, 'config.js') });
+  if (offline) {
+    const backgroundPath = join(unpacked, 'background.js');
+    const background = await readFile(backgroundPath, 'utf8');
+    const apiUrl = 'http://localhost:3000/api/extension/openai';
+    if (!background.includes(apiUrl)) throw new Error('Classifier URL not found in extension under test');
+    await writeFile(backgroundPath, background.replace(apiUrl, 'http://localhost:3000/api/extension/__offline_smoke__'));
+  }
   if (!liveApp) await listen(app, 3000);
   await listen(page, 3210);
   chrome = spawn(chromePath, [
@@ -108,7 +115,7 @@ try {
     ? `document.body.textContent.includes('Extension connected · ${expectedCount} films protected') ? '${expectedCount}' : undefined`
     : 'document.body.dataset.ack');
   const pageSession = await tab('http://localhost:3210/');
-  await delay(4300);
+  await waitFor(pageSession, `document.querySelector('#spoiler')?.dataset.spoilsportState === '${liveApp && !offline ? 'spoiler' : 'unchecked'}'`, 100);
   const targets = await command('Target.getTargets');
   const state = await evaluate(pageSession, `({ firstMask: document.body.dataset.firstMask,
     spoiler: document.querySelector('#spoiler').dataset.spoilsportState,
@@ -124,7 +131,7 @@ try {
   if (liveApp) {
     const forumSession = await tab('http://localhost:3000/demo/forum');
     await waitFor(forumSession, "document.querySelectorAll('article p[data-expected]').length >= 9");
-    await delay(5500);
+    await waitFor(forumSession, "[...document.querySelectorAll('article p[data-expected]')].slice(0, 4).every(comment => ['safe', 'spoiler', 'unchecked'].includes(comment.dataset.spoilsportState))", 100);
     const forum = await evaluate(forumSession, `(() => {
       const comments = [...document.querySelectorAll('article p[data-expected]')];
       return { sixthSense: comments.slice(0, 4).map((comment) => comment.dataset.spoilsportState),
@@ -135,7 +142,7 @@ try {
     if (JSON.stringify(forum.sixthSense) !== JSON.stringify(expectedForum) ||
       (offline ? forum.unchecked < 4 : forum.unchecked !== 0)) process.exitCode = 1;
     await evaluate(forumSession, "[...document.querySelectorAll('button')].find(button => button.textContent.includes('Post a new spoiler')).click()");
-    await delay(800);
+    await waitFor(forumSession, `[...document.querySelectorAll('article p[data-expected]')].at(-1)?.dataset.spoilsportState === '${offline ? 'unchecked' : 'spoiler'}'`, 100);
     const late = await evaluate(forumSession, "[...document.querySelectorAll('article p[data-expected]')].at(-1).dataset.spoilsportState");
     console.log(`late forum comment: ${late}`);
     if (late !== (offline ? 'unchecked' : 'spoiler')) process.exitCode = 1;
