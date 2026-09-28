@@ -82,7 +82,7 @@ async function expandTerms(film) {
     });
     const terms = Array.isArray(result.terms) ? result.terms.filter((term) => typeof term === 'string').slice(0, 20) : [];
     await chrome.storage.local.set({ [key]: terms });
-  } catch (_) {
+  } catch {
     // Retry at the next watchlist change; detection still uses known names.
   }
 }
@@ -104,6 +104,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes['spoilsport:watchlist']) return;
   verdictCache.clear();
+  const watchlist = changes['spoilsport:watchlist'].newValue;
+  if (Array.isArray(watchlist)) {
+    for (const film of watchlist.filter((item) => item?.status === 'want')) void expandTerms(film);
+  }
+});
+
+chrome.storage.local.get('spoilsport:watchlist').then((stored) => {
+  if (Array.isArray(stored['spoilsport:watchlist'])) {
+    for (const film of stored['spoilsport:watchlist'].filter((item) => item?.status === 'want')) void expandTerms(film);
+  }
 });
 
 chrome.runtime.onInstalled.addListener(() => {

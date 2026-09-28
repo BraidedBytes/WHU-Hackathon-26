@@ -1,6 +1,4 @@
 (function () {
-  if (location.origin === 'http://localhost:3000' && !location.pathname.startsWith('/demo')) return;
-
   const Detect = globalThis.SpoilsportDetect;
   const BLOCKS = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, td, dd, figcaption, .comment, [data-expected]';
   const overlays = new Map();
@@ -119,8 +117,9 @@
             if (!result || typeof result.spoiler !== 'boolean' ||
               typeof result.confidence !== 'number' || result.confidence < 0 || result.confidence > 1) {
               settle(item.block, 'unchecked');
-            } else if (result.spoiler && result.confidence >= 0.5) {
-              settle(item.block, 'spoiler', result.filmId);
+            } else if (result.spoiler) {
+              if (result.confidence >= 0.5) settle(item.block, 'spoiler', result.filmId);
+              else settle(item.block, 'unchecked');
             } else settle(item.block, 'safe');
           }
           reportCount();
@@ -215,6 +214,23 @@
     reload();
   }
 
-  if (document.body) start();
-  else document.addEventListener('DOMContentLoaded', start, { once: true });
+  function startWhenReady() {
+    if (location.origin !== 'http://localhost:3000' || !location.pathname.startsWith('/demo')) {
+      start();
+      return;
+    }
+    if (document.documentElement.hasAttribute('data-spoilsport-ready')) {
+      start();
+      return;
+    }
+    const readyObserver = new MutationObserver(() => {
+      if (!document.documentElement.hasAttribute('data-spoilsport-ready')) return;
+      readyObserver.disconnect();
+      start();
+    });
+    readyObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-spoilsport-ready'] });
+  }
+
+  if (document.body) startWhenReady();
+  else document.addEventListener('DOMContentLoaded', startWhenReady, { once: true });
 })();

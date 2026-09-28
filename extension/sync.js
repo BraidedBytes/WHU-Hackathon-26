@@ -22,7 +22,7 @@
     const stored = window.localStorage.getItem(KEY);
     if (stored !== null) saveAndAck(JSON.parse(stored));
     else saveAndAck([]);
-  } catch (_) {
+  } catch {
     saveAndAck([]);
   }
 

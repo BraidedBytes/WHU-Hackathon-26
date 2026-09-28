@@ -11,7 +11,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const pathname = (await headers()).get("x-spoilsport-pathname") ?? "/";
   const protectApp = !pathname.startsWith("/demo");
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body {...(protectApp ? { "data-spoilsport-ignore": "" } : {})}>{children}</body>
     </html>
   );

@@ -1,6 +1,23 @@
 const TMDB_BASE = "https://api.themoviedb.org/3";
 
-export async function tmdb(path: string) {
+export type TMDBSearchMovie = {
+  id: number;
+  title: string;
+  original_title: string;
+  release_date?: string;
+  poster_path: string | null;
+  overview?: string;
+};
+
+export type TMDBSearchResponse = { results?: TMDBSearchMovie[] };
+
+export type TMDBMovie = TMDBSearchMovie & {
+  genres?: { name: string }[];
+  credits?: { cast?: { name: string; character?: string }[] };
+  keywords?: { keywords?: { name: string }[] };
+};
+
+export async function tmdb<T>(path: string): Promise<T> {
   const token = process.env.TMDB_READ_TOKEN?.trim();
   if (!token) throw new Error("TMDB_READ_TOKEN is not configured");
   const url = new URL(`${TMDB_BASE}${path}`);
@@ -11,7 +28,7 @@ export async function tmdb(path: string) {
     cache: "no-store",
   });
   if (!response.ok) throw new Error(`TMDB request failed (${response.status})`);
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 export function yearOf(date?: string): number | null {

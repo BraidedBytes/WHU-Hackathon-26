@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { demoFixtures, lateDemoComment } from '@/lib/demo-fixtures';
 
 export function DemoForum() {
@@ -35,7 +36,7 @@ export function DemoForum() {
 
   return <main className="mx-auto max-w-6xl px-4 pb-20 sm:px-7">
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 py-6">
-      <a href="/" className="text-lg font-black tracking-tight text-white">S <span className="text-rose-400">spoilsport</span></a>
+      <Link href="/" className="text-lg font-black tracking-tight text-white">S <span className="text-rose-400">spoilsport</span></Link>
       <span className="rounded-full border border-white/10 bg-zinc-900 px-4 py-2 text-xs uppercase tracking-[.18em] text-zinc-400">The film forum · live demo</span>
     </header>
 
@@ -46,7 +47,7 @@ export function DemoForum() {
         <p className="mt-5 max-w-2xl text-zinc-400">These are sample film comments. Watch the extension blur plot reveals while leaving ordinary discussion readable.</p>
         <div className="mt-8 flex flex-wrap gap-3">
           <button onClick={() => setShowLateComment(true)} disabled={showLateComment} className="rounded-full bg-rose-500 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{showLateComment ? 'New comment posted' : 'Post a new spoiler comment'}</button>
-          <a href="/" className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white hover:bg-white/5">Back to watchlist</a>
+          <Link href="/" className="rounded-full border border-white/15 px-5 py-3 text-sm font-bold text-white hover:bg-white/5">Back to watchlist</Link>
         </div>
 
         <div className="mt-10 grid gap-4">
@@ -63,7 +64,7 @@ export function DemoForum() {
           <p className="text-xs font-bold uppercase tracking-[.2em] text-zinc-500">Live shield status</p>
           <p className="mt-4 text-2xl font-black">{ack !== null ? 'Extension connected' : 'Extension not detected'}</p>
           <p className="mt-2 text-sm text-zinc-400">{protectedCount} unwatched films in this browser · {ack === null ? 'No ACK yet' : `${ack} synced to extension`}</p>
-          {protectedCount === 0 && <a href="/" className="mt-4 inline-block text-sm font-bold text-rose-300">Load the demo watchlist →</a>}
+          {protectedCount === 0 && <Link href="/" className="mt-4 inline-block text-sm font-bold text-rose-300">Load the demo watchlist →</Link>}
         </div>
         <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-5 text-sm text-zinc-400">
           <p className="font-bold text-white">Show the judges</p>

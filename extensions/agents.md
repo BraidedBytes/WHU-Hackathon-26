@@ -4,7 +4,9 @@
 
 Build a demo-ready Chrome Manifest V3 extension that shields a user's **unwatched** watchlist films from spoilers on other websites. The live demo matters more than polish: suspected text must be blurred before it can be read, safe text should become readable quickly, and a failed classifier must leave text blurred.
 
-The web UI team owns the Next.js app at `http://localhost:3000`. Extension work belongs in `/extension` only. This file is the requested coordination brief in `/extensions`; do not move extension implementation into this directory or edit the web UI. Coordinate through the frozen contract below. There is roughly 1h45 of build time; freeze features 30 minutes before the demo.
+**Current integration:** The extension now calls `http://localhost:3000/api/extension/openai`; the web app keeps `OPENAI_API_KEY` and `OPENAI_MODEL` in its gitignored `.env.local`. Do not add an API key to the extension or request direct `api.openai.com` access from it. The build sequence below records the original plan; follow this integration when changing code.
+
+The web UI lives in the Next.js app at `http://localhost:3000`; extension implementation belongs in `/extension`. Coordinate changes to the watchlist and message contract with both sides. This file is the coordination brief in `/extensions`, not an implementation directory.
 
 ## Frozen web UI contract
 
@@ -45,8 +47,8 @@ The app may put `data-spoilsport-ignore` on `body` or an ancestor after hydratio
 - Manifest V3; plain JavaScript; no bundler or npm dependencies inside `/extension`.
 - Files: `manifest.json`, `config.example.js`, `lib/detect.js`, `sync.js`, `content.js`, `content.css`, `background.js`, `popup.html`, `popup.js`, `scripts/eval.mjs`. Add a tiny bootstrap file only if needed to prevent first-paint leakage.
 - `lib/detect.js` is a **classic script** with no `import` or `export`; expose `buildMatchers`, `prefilter`, and `buildClassifyRequest` through `globalThis.SpoilsportDetect`. It must work in a manifest content script, `background.js` via `importScripts`, and Node via side-effect import.
-- Keep the API key and fast model name in gitignored `/extension/config.js` as `globalThis.SPOILSPORT_CONFIG = { OPENAI_API_KEY: "...", MODEL: "..." }`. Commit only `config.example.js`. Use a restricted demo key and revoke it after the demo; an extension-bundled key is visible to whoever has the extension files.
-- Manifest permissions: `storage`, `contextMenus`; host permissions: `https://api.openai.com/*`, `http://localhost:3000/*`; action popup: `popup.html`. `background.js` is a classic service worker and calls `importScripts("config.js", "lib/detect.js")`.
+- Keep the API key and model name in the web app's gitignored `.env.local`. The extension package must contain no key.
+- Manifest permissions: `storage`, `contextMenus`; host permission: `http://localhost:3000/*`; action popup: `popup.html`. `background.js` is a classic service worker and calls `importScripts("lib/detect.js")`.
 - Inject `sync.js` on `http://localhost:3000/*` at `document_start`. Inject `lib/detect.js`, `content.js`, and `content.css` on `<all_urls>`. The original sketch proposed `document_idle` for detection, but that can visibly flash a spoiler. Start protection at `document_start` (or add an equivalent early bootstrap), wait for `body` before walking it, and conservatively mask eligible blocks until the first scan resolves them. Keep this early mask effective for newly inserted blocks until they are checked. Verify the actual browser behavior; do not claim no flash based only on code inspection.
 - The only website content sent to OpenAI is trimmed candidate snippet text, at most 600 characters per item. The classifier may also receive the protected films' title, year, overview, and characters as context. Never send page URLs, browsing history, or whole-page HTML.
 
@@ -98,10 +100,10 @@ The popup shows protected film titles and years, their count, AI/Keyword mode, p
 1. **Sync and first blur:** Manifest, example config, classic detector, `sync.js`, and an early content script. Use a hardcoded two-film watchlist only for this first check. Prove ACK and instant blur on `/demo/forum` and a Wikipedia film page.
 2. **AI verdict path:** Worker classifier, cache, safe unblur, spoiler overlay, reveal, timeout/error handling. Verify a network failure remains blurred.
 3. **Real state:** Replace the hardcoded list with storage; add mutation rescans, ignore rules, mode/pause controls, popup film list, and count. Verify web app changes propagate without reload.
-4. **Tune:** `scripts/eval.mjs` on Node 18+ side-effect imports `config.js` and `lib/detect.js`, loads `http://localhost:3000/demo/testset.json` (`[{ id, text, film, expected }]`), uses a hardcoded demo watchlist in the app's shape, and runs the same prefilter and classifier. Print accuracy by expected label and every wrong item with its text. Add debug outlines and tune the prompt.
+4. **Tune:** `scripts/eval.mjs` on Node 18+ side-effect imports `lib/detect.js`, loads `http://localhost:3000/demo/testset.json` (`[{ id, text, film, expected }]`), uses a hardcoded demo watchlist in the app's shape, and runs the same prefilter and classifier through the local app. Print accuracy by expected label and every wrong item with its text. Add debug outlines and tune the prompt.
 5. **Stretch:** P1 term expansion and badge, then P2 context menu. Stop adding features at T minus 30 minutes and run the acceptance checks.
 
-Tell the web UI owners only about contract mismatches or failing demo fixtures. Do not change their code. Keep each milestone loadable as an unpacked extension so the team always has a demoable build.
+Keep each milestone loadable as an unpacked extension so the team always has a demoable build.
 
 ## Demo acceptance checks
 
@@ -112,4 +114,4 @@ Tell the web UI owners only about contract mismatches or failing demo fixtures. 
 - Web app pages outside `/demo` never blur; `[data-spoilsport-ignore]` works even when added after hydration.
 - On a throttled or disconnected network, suspects remain blurred with the `Couldn't check` reveal control.
 - During a hard reload and during late comment insertion, no spoiler text flashes before masking.
-- The network inspector shows snippets and the necessary film context going to `api.openai.com`, with no page URL or browsing history.
+- The network inspector shows snippets and the necessary film context going through the local app to `api.openai.com`, with no page URL or browsing history.

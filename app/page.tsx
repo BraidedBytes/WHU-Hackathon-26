@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ChatModal } from "@/components/ChatModal";
 import { Poster } from "@/components/Poster";
+import { demoFilms } from "@/lib/demo-films";
 import { SearchResult, TasteProfile, WatchlistItem } from "@/lib/types";
 
 const WATCHLIST_KEY = "spoilsport:watchlist";
@@ -26,7 +27,6 @@ export default function Home() {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [ack, setAck] = useState<number | null>(null);
   const [chatFilm, setChatFilm] = useState<SearchResult | WatchlistItem | null | undefined>(undefined);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -34,6 +34,9 @@ export default function Home() {
   const [favResults, setFavResults] = useState<SearchResult[]>([]);
 
   useEffect(() => {
+    document.body.setAttribute("data-spoilsport-ignore", "");
+    // Hydrate browser storage after SSR; rendering it during the first pass would mismatch.
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       const savedWatchlist = JSON.parse(localStorage.getItem(WATCHLIST_KEY) ?? "[]");
       const savedProfile = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? "null");
@@ -41,6 +44,7 @@ export default function Home() {
       if (savedProfile) setProfile({ ...EMPTY_PROFILE, ...savedProfile });
     } catch { setError("Saved data could not be read, so we started fresh."); }
     setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
     const listener = (event: MessageEvent) => {
       if (event.origin === window.location.origin && event.data?.source === "spoilsport-extension" && event.data?.type === "EXTENSION_ACK" && typeof event.data.count === "number") setAck(event.data.count);
     };
@@ -59,10 +63,14 @@ export default function Home() {
   useEffect(() => { if (hydrated) localStorage.setItem(PROFILE_KEY, JSON.stringify(profile)); }, [profile, hydrated]);
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); setSearching(false); return; }
-    setSearching(true);
-    const timeout = setTimeout(() => searchMovies(query).then(setResults).catch((e) => setError(e.message)).finally(() => setSearching(false)), 300);
-    return () => clearTimeout(timeout);
+    if (!query.trim()) return;
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      searchMovies(query).then((movies) => { if (!cancelled) setResults(movies); })
+        .catch((e) => { if (!cancelled) setError(e.message); })
+        .finally(() => { if (!cancelled) setSearching(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timeout); };
   }, [query]);
 
   const protectedCount = useMemo(() => watchlist.filter((item) => item.status === "want").length, [watchlist]);
@@ -79,22 +87,12 @@ export default function Home() {
     finally { setBusyId(null); }
   }
 
-  async function loadDemoFilms() {
-    setDemoLoading(true); setError("");
-    try {
-      const ids = [745, 299534];
-      const films = await Promise.all(ids.map(async (id) => {
-        const response = await fetch(`/api/tmdb/movie/${id}`);
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error ?? "Could not load demo films");
-        return data as WatchlistItem;
-      }));
-      setWatchlist((current) => [
-        ...films.map((film) => ({ ...(current.find((item) => item.tmdbId === film.tmdbId) ?? film), status: "want" as const })),
-        ...current.filter((item) => !ids.includes(item.tmdbId)),
-      ]);
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not load demo films"); }
-    finally { setDemoLoading(false); }
+  function loadDemoFilms() {
+    setError("");
+    setWatchlist((current) => [
+      ...demoFilms.map((film) => ({ ...(current.find((item) => item.tmdbId === film.tmdbId) ?? film), status: "want" as const })),
+      ...current.filter((item) => !demoFilms.some((film) => film.tmdbId === item.tmdbId)),
+    ]);
   }
 
   async function findFavourites(event: FormEvent) {
@@ -118,13 +116,13 @@ export default function Home() {
         <h1 className="mx-auto max-w-4xl text-4xl font-black leading-[.95] tracking-[-.05em] sm:text-7xl">Know what to watch.<br /><span className="text-zinc-500">Not what happens.</span></h1>
         <p className="mx-auto mt-6 max-w-xl text-zinc-400">Build your watchlist, protect it across the web, and ask anything about a film—without ruining a single scene.</p>
         <div className="relative mx-auto mt-8 max-w-2xl text-left">
-          <div className="glass flex items-center rounded-2xl p-2 shadow-2xl"><span className="px-3 text-zinc-500">⌕</span><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search for a film…" className="w-full bg-transparent px-1 py-3 outline-none placeholder:text-zinc-600" />{searching && <span className="animate-pulse px-3 text-xs text-zinc-500">Searching…</span>}</div>
+          <div className="glass flex items-center rounded-2xl p-2 shadow-2xl"><span className="px-3 text-zinc-500">⌕</span><input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setResults([]); setSearching(Boolean(e.target.value.trim())); }} placeholder="Search for a film…" className="w-full bg-transparent px-1 py-3 outline-none placeholder:text-zinc-600" />{searching && <span className="animate-pulse px-3 text-xs text-zinc-500">Searching…</span>}</div>
           {!!results.length && <div className="glass absolute z-30 mt-2 max-h-[430px] w-full overflow-y-auto rounded-2xl p-2 shadow-2xl">{results.map((movie) => <div key={movie.id} className="flex items-center gap-3 rounded-xl p-2 hover:bg-white/5"><Poster path={movie.posterPath} title={movie.title} /><div className="min-w-0 flex-1"><p className="truncate font-bold">{movie.title}</p><p className="text-sm text-zinc-500">{movie.year ?? "Year unknown"}</p><p className="mt-1 line-clamp-2 text-xs text-zinc-400">{movie.overview || "No overview available."}</p></div><div className="flex shrink-0 flex-col gap-2"><button onClick={() => addMovie(movie.id)} disabled={busyId === movie.id || watchlist.some((item) => item.tmdbId === movie.id)} className="rounded-full bg-white px-4 py-2 text-xs font-bold text-black disabled:opacity-40">{watchlist.some((item) => item.tmdbId === movie.id) ? "Added" : busyId === movie.id ? "Adding…" : "+ Add"}</button><button onClick={() => setChatFilm(movie)} className="rounded-full border border-white/10 px-3 py-2 text-xs hover:bg-white/10">Ask</button></div></div>)}</div>}
         </div>
         <button onClick={() => setChatFilm(null)} className="mt-4 text-sm font-bold text-rose-300 hover:text-rose-200">✦ What should I watch?</button>
         <div className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
           <span className="text-sm font-bold text-zinc-200">Ready for the judges?</span>
-          <button onClick={loadDemoFilms} disabled={!hydrated || demoLoading} className="rounded-full bg-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{demoLoading ? "Loading films…" : "1. Load demo films"}</button>
+          <button onClick={loadDemoFilms} disabled={!hydrated} className="rounded-full bg-rose-500 px-4 py-2 text-xs font-bold text-white disabled:opacity-50">1. Load demo films</button>
           <a href="/demo/forum" className="rounded-full border border-white/15 px-4 py-2 text-xs font-bold text-white hover:bg-white/10">2. Open spoiler forum →</a>
         </div>
         {error && <p className="mx-auto mt-4 max-w-xl rounded-xl bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}

@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
+    const origin = request.headers.get("origin");
+    if (origin && origin !== request.nextUrl.origin && !/^chrome-extension:\/\/[a-p]{32}$/.test(origin)) {
+      return NextResponse.json({ error: "Origin not allowed" }, { status: 403 });
+    }
+    if (request.headers.get("content-type")?.split(";")[0] !== "application/json") {
+      return NextResponse.json({ error: "Expected JSON" }, { status: 415 });
+    }
     const key = process.env.OPENAI_API_KEY?.trim();
     const model = process.env.OPENAI_MODEL?.trim();
     if (!key || !model) throw new Error("OPENAI_API_KEY or OPENAI_MODEL is not configured");
