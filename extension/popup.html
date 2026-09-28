@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spoilsport</title>
+  <style>
+    body { width: 290px; margin: 0; padding: 18px; background: #111827; color: #f9fafb; font: 14px/1.4 system-ui, sans-serif; }
+    h1 { font-size: 21px; margin: 0 0 4px; }
+    p { margin: 0 0 14px; color: #cbd5e1; }
+    ul { margin: 8px 0 18px; padding-left: 18px; max-height: 160px; overflow: auto; }
+    li { margin: 4px 0; }
+    label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; }
+    select, input { accent-color: #f97316; }
+    select { background: #1f2937; color: #fff; border: 1px solid #64748b; border-radius: 5px; padding: 5px; }
+    .muted { color: #94a3b8; }
+    .count { padding: 10px; border-radius: 8px; background: #1f2937; margin: 16px 0; }
+    a { color: #fdba74; }
+  </style>
+</head>
+<body>
+  <h1>Spoilsport</h1>
+  <p><span id="film-count">0</span> protected films</p>
+  <ul id="films"></ul>
+  <label>Mode <select id="mode"><option value="ai">AI</option><option value="keyword">Keyword (dumb)</option></select></label>
+  <label>Pause protection <input id="paused" type="checkbox"></label>
+  <label>Debug outlines <input id="debug" type="checkbox"></label>
+  <div class="count">Spoilers blocked on this page: <strong id="page-count">0</strong></div>
+  <a href="http://localhost:3000" target="_blank" rel="noopener">Open watchlist</a>
+  <script src="popup.js"></script>
+</body>
+</html>
